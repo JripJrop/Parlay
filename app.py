@@ -42,7 +42,19 @@ def american_to_decimal(odds_american: float) -> float:
         return 1 + odds_american / 100.0
     else:
         return 1 + 100.0 / abs(odds_american)
-
+def decimal_to_american(odds_decimal: float) -> int:
+    """
+    Convert decimal odds to American odds.
+    """
+    if odds_decimal <= 1.0:
+        # Invalid for betting, but avoid crash
+        return 0
+    if odds_decimal >= 2.0:
+        # Positive American odds
+        return int(round((odds_decimal - 1.0) * 100.0))
+    else:
+        # Negative American odds
+        return int(round(-100.0 / (odds_decimal - 1.0)))
 
 def set_target_exposures(
     legs: List[Leg],
@@ -291,7 +303,45 @@ def main():
             ),
         },
     )
+    # Preview odds in both formats so you can see +250/-220 and decimal versions
+    preview_rows = []
+    for _, row in legs_df.iterrows():
+        name = str(row.get("Name", "")).strip()
+        odds_val = row.get("Odds", None)
+        conf_val = row.get("Confidence (0–100)", 50)
 
+        if not name:
+            continue
+        if odds_val is None or (isinstance(odds_val, float) and math.isnan(odds_val)):
+            continue
+
+        try:
+            odds_val = float(odds_val)
+        except Exception:
+            continue
+
+        if odds_mode == "American":
+            american = int(odds_val)
+            decimal = american_to_decimal(american)
+        else:
+            decimal = float(odds_val)
+            if decimal <= 1.0:
+                continue
+            american = decimal_to_american(decimal)
+
+        preview_rows.append(
+            {
+                "Leg name": name,
+                "American odds": american,
+                "Decimal odds": round(decimal, 3),
+                "Confidence (0–100)": conf_val,
+            }
+        )
+
+    if preview_rows:
+        preview_df = pd.DataFrame(preview_rows)
+        st.markdown("#### Odds preview (both formats)")
+        st.dataframe(preview_df, use_container_width=True)
     st.markdown("### Step 2: Generate parlays")
 
     generate = st.button("Generate Parlay Portfolio", type="primary")
@@ -400,7 +450,14 @@ def main():
         parlays_df = pd.DataFrame(parlay_rows)
         st.markdown("#### Generated Parlays")
         st.dataframe(parlays_df, use_container_width=True)
-
+        # CSV download for parlays
+        csv_data = parlays_df.to_csv(index=False)
+        st.download_button(
+            label="Download parlays as CSV",
+            data=csv_data,
+            file_name="parlays.csv",
+            mime="text/csv",
+        )
         # Exposure report
         exposure_rows = []
         for leg in legs_list:
