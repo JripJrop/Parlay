@@ -82,7 +82,7 @@ def build_parlays(
     min_combined_odds: float = 15.0,
     stake_per_parlay: float = 1.0,
     max_exposure_cap: float = 0.9,
-    rng_seed:=None,
+    rng_seed=None,
 ) -> List[Parlay]:
     if rng_seed is not None:
         random.seed(rng_seed)
